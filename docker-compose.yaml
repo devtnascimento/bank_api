@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    container_name: IF_APP
+    volumes:
+      - ".:/app"
+    command: "/bin/bash"
+    tty: true
+  postgres:
+    image: postgres:latest
+    container_name: IF_DB 
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:

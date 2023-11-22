@@ -1,4 +1,4 @@
-use super::bank::{Bank, Destination};
+use crate::bank::{Bank, Destination};
 use tokio::io::Result;
 
 #[derive(Debug)]
@@ -11,7 +11,7 @@ impl CentralBank {
         CentralBank { banks: Vec::new() }
     }
 
-    pub fn get_account(destination: Destination) -> String {
+    pub fn get_account(destination: Destination) -> Result<String> {
         todo!();
     }
 }
