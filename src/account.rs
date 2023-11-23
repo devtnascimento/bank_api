@@ -1,7 +1,9 @@
-use std::{collections::HashMap, error::Error};
-
-use crate::{account, bank::Destination, database::connection::Postgres, io::AccountError};
-use tokio_postgres::Error as PostgresError;
+use crate::{
+    bank::Destination,
+    database::connection::Postgres,
+    io::{AccountError, Result},
+};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Account {
@@ -13,15 +15,11 @@ pub struct Account {
 }
 
 impl Account {
-    pub async fn new(
-        first_name: String,
-        last_name: String,
-        cpf: String,
-    ) -> Result<Account, PostgresError> {
+    pub async fn new(first_name: String, last_name: String, cpf: String) -> Result<Account> {
         let db = Postgres::new().await?;
 
         if let Err(e) = db.init().await {
-            return Err(e);
+            return Err(Box::new(e));
         }
 
         tokio::spawn(async move { db.conn.await });
@@ -33,7 +31,7 @@ impl Account {
 
         let account_number: i32 = match db.client.query_one(&insert_query, &[]).await {
             Ok(row) => row.get(0),
-            Err(e) => return Err(e),
+            Err(e) => return Err(Box::new(e)),
         };
 
         Ok(Account {
@@ -45,19 +43,13 @@ impl Account {
         })
     }
 
-    pub async fn transfer(
-        &self,
-        value: f64,
-        destination: Destination,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn transfer(&self, value: f64, destination: Destination) -> Result<()> {
         match destination {
             Destination::AccountNumber(number) => {
                 let db = Postgres::new().await?;
-
                 if let Err(e) = db.init().await {
                     return Err(Box::new(e));
                 }
-
                 tokio::spawn(async move { db.conn.await });
 
                 let operations = vec![
@@ -94,10 +86,8 @@ impl Account {
                     .send()
                     .await?;
 
-                let account_number = match resp.status() {
-                    reqwest::StatusCode::OK => {
-                         resp.text().await?
-                    }
+                let destination_url = match resp.status() {
+                    reqwest::StatusCode::OK => resp.text().await?,
                     reqwest::StatusCode::NOT_FOUND => {
                         return Err(Box::new(AccountError::KeyNotFound(key)));
                     }
@@ -105,13 +95,15 @@ impl Account {
                         let err_msg = resp.text().await?;
                         return Err(Box::new(AccountError::Other(err_msg)));
                     }
-                }
+                };
 
-
-
-
-                todo!();
+                self.extern_account(&destination_url).await?;
+                Ok(())
             }
         }
+    }
+
+    async fn extern_account(&self, url: &str) -> Result<()> {
+        todo!()
     }
 }
