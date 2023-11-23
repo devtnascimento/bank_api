@@ -1,10 +1,9 @@
 use tokio::io::Result;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub enum Destination {
-    #[default]
-    AccountNumber,
-    PixKey,
+    AccountNumber(String),
+    PixKey(String),
 }
 
 #[derive(Debug)]
