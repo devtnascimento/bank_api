@@ -11,7 +11,7 @@ impl Postgres {
         let (client, conn) = tokio_postgres::connect(db_url, NoTls).await?;
         Ok(Postgres { conn, client })
     }
-    pub async fn init(&self) -> Result<(), Error> {
+    pub async fn init(client: &Client) -> Result<(), Error> {
         const CREATE_TABLE: &str = r#"
             CREATE TABLE IF NOT EXISTS accounts (
                 id SERIAL PRIMARY KEY,
@@ -22,9 +22,12 @@ impl Postgres {
             );
         "#;
 
-        if let Err(e) = self.client.execute(CREATE_TABLE, &[]).await {
-            return Err(e);
+        println!("db init call");
+        match client.execute(CREATE_TABLE, &[]).await {
+            Ok(value) => println!("value = {}", value),
+            Err(e) => println!("ERROR: {}", e),
         }
+        println!("returnig db init");
         Ok(())
     }
 }
