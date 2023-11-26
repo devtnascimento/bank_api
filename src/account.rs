@@ -5,24 +5,34 @@ use crate::{
     database::connection::Postgres,
     io::{AccountError, Result},
 };
+use protocol::{
+    message::{self, Register, Request, Response},
+    serde_json,
+};
 use std::collections::HashMap;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 #[derive(Debug)]
 pub struct Account {
+    bank_name: String,
     pub number: String,
     balance: f64,
     first_name: String,
     last_name: String,
     cpf: String,
+    pix_key: String,
 }
 
 impl Account {
-    pub async fn new(first_name: String, last_name: String, cpf: String) -> Result<Account> {
-        println!("new account call");
+    pub async fn new(
+        bank_name: String,
+        first_name: String,
+        last_name: String,
+        cpf: String,
+        pix_key: String,
+    ) -> Result<Account> {
         let db = Postgres::new().await?;
-        println!("db connection");
-
-        println!("db init");
 
         tokio::spawn(async move {
             if let Err(e) = db.conn.await {
@@ -32,8 +42,6 @@ impl Account {
         if let Err(e) = Postgres::init(&db.client).await {
             return Err(Box::new(e));
         }
-
-        println!("tokio::spawn");
 
         let insert_query = format!(
             "INSERT INTO accounts (first_name, last_name, cpf) VALUES ('{}', '{}', '{}') RETURNING id",
@@ -45,14 +53,14 @@ impl Account {
             Err(e) => return Err(Box::new(e)),
         };
 
-        println!("returning from new account");
-
         Ok(Account {
+            bank_name,
             number: account_number.to_string(),
             balance: 0.,
             first_name,
             last_name,
             cpf,
+            pix_key,
         })
     }
 
@@ -89,55 +97,29 @@ impl Account {
                 Ok(())
             }
             Destination::PixKey(key) => {
-                let mut params = HashMap::new();
+                let pix = message::request::Pix { key };
 
-                params.insert("key", &key);
+                let cb_addr = "127.0.0.1";
+                let cb_port = "8080";
 
-                let resp = reqwest::Client::new()
-                    .get("127.0.0.1:8080/key")
-                    .query(&params)
-                    .send()
-                    .await?;
+                let resp = pix.send(cb_addr, cb_port).await?;
 
-                let resp_map: HashMap<String, serde_json::Value> = match resp.status() {
-                    reqwest::StatusCode::OK => resp.json().await?,
-                    reqwest::StatusCode::NOT_FOUND => {
-                        return Err(Box::new(AccountError::KeyNotFound(key)));
-                    }
-                    _ => {
-                        let err_msg = resp.text().await?;
-                        return Err(Box::new(AccountError::Other(err_msg)));
-                    }
+                let user = message::User {
+                    name: self.first_name.clone(),
+                    last_name: self.last_name.clone(),
+                    cpf: self.cpf.clone(),
+                    pix_key: self.pix_key.clone(),
                 };
 
-                self.extern_transfer(&resp_map, &value).await?;
+                let request = message::request::Transaction {
+                    bank_name: self.bank_name.clone(),
+                    from_user: user,
+                    to_user: resp.user,
+                    amount: value,
+                };
+                request.send(cb_addr, cb_port).await?;
                 Ok(())
             }
         }
-    }
-
-    async fn extern_transfer(
-        &self,
-        resp_map: &HashMap<String, serde_json::Value>,
-        value: &f64,
-    ) -> Result<()> {
-        let mut data = HashMap::new();
-
-        if let Some(number) = resp_map.get("number") {
-            data.insert(number.to_string(), value);
-        }
-
-        let url = match resp_map.get("url") {
-            Some(url) => url.to_string(),
-            None => return Err(Box::new(AccountError::Other("url not found".to_string()))),
-        };
-
-        let resp = reqwest::Client::new().post(url).json(&data).send().await?;
-
-        if !resp.status().is_success() {
-            return Err(Box::new(AccountError::Other(resp.text().await?)));
-        }
-
-        Ok(())
     }
 }
