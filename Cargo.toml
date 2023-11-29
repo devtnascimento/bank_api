@@ -3,9 +3,9 @@ name = "bank"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependecies]
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-protocol = { path = "../protocol" }
+tokio = { version = "1.34.0", features = ["full"] }
 tokio-postgres = "0.7.10"
+protocol = { path = "../protocol" }

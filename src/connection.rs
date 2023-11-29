@@ -1,8 +1,5 @@
 use std::net::SocketAddr;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-};
+use tokio::{io::AsyncReadExt, net::TcpStream};
 
 pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
     println!("Accepted connection from: {}", addr);
@@ -16,9 +13,11 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
             }
             Ok(_) => {
                 println!("connection closed by {}: {}", addr, addr);
+                break;
             }
             Err(e) => {
                 eprintln!("Error reading from socket: {}", e);
+                break;
             }
         }
     }

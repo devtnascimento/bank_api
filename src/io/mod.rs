@@ -6,18 +6,22 @@ use std::{
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 #[derive(Debug)]
-pub enum AccountError {
-    KeyNotFound(String),
-    Other(String),
+pub enum AccountError<'a> {
+    KeyNotFound(&'a str),
+    TransferError(&'a str),
+    Other(&'a str),
 }
 
-impl Display for AccountError {
+impl<'a> Display for AccountError<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             AccountError::KeyNotFound(ref key) => write!(f, "Pix key {} not found", key),
+            AccountError::TransferError(ref message) => {
+                write!(f, "Could not transfer\nError: {}", message)
+            }
             AccountError::Other(ref message) => write!(f, "{}", message),
         }
     }
 }
 
-impl Error for AccountError {}
+impl<'a> Error for AccountError<'a> {}

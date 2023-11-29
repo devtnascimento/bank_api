@@ -1,6 +1,8 @@
 services:
   api:
     build: .
+    ports:
+      - "8081:8080"
     container_name: IF_APP
     volumes:
       - ".:/app"
