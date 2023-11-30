@@ -13,22 +13,20 @@ use tokio::net::TcpStream;
 
 #[derive(Debug)]
 pub struct Account {
-    bank_name: String,
     pub number: String,
     balance: f64,
     first_name: String,
     last_name: String,
     cpf: String,
-    pix_key: String,
+    pix_key: Option<String>,
 }
 
 impl Account {
     pub async fn new(
-        bank_name: String,
         first_name: String,
         last_name: String,
         cpf: String,
-        pix_key: String,
+        pix_key: Option<String>,
     ) -> Result<Account> {
         let db = Postgres::new().await?;
 
@@ -37,9 +35,6 @@ impl Account {
                 eprintln!("Database connection error: {}", e);
             }
         });
-        if let Err(e) = Postgres::init(&db.client).await {
-            return Err(Box::new(e));
-        }
 
         let insert_query = format!(
             "INSERT INTO accounts (first_name, last_name, cpf) VALUES ('{}', '{}', '{}') RETURNING id",
@@ -52,13 +47,33 @@ impl Account {
         };
 
         Ok(Account {
-            bank_name,
             number: account_number.to_string(),
             balance: 0.,
             first_name,
             last_name,
             cpf,
             pix_key,
+        })
+    }
+
+    pub async fn from(number: String) -> Result<Account> {
+        let db = Postgres::new().await?;
+        let query = "SELECT id, first_name, last_name, cpf, balance FROM accounts WHERE id = $1;";
+
+        let rows = db.client.query(query, &[&number]).await?;
+
+        let first_name: String = rows[0].get("first_name");
+        let last_name: String = rows[0].get("last_name");
+        let cpf: String = rows[0].get("cpf");
+        let balance: f64 = rows[0].get("balance");
+
+        Ok(Account {
+            number,
+            first_name,
+            last_name,
+            cpf,
+            pix_key: None,
+            balance,
         })
     }
 
@@ -191,7 +206,7 @@ impl Account {
             name: self.first_name.clone(),
             last_name: self.last_name.clone(),
             cpf: self.cpf.clone(),
-            pix_key: self.pix_key.clone(),
+            pix_key: self.pix_key.as_ref().unwrap_or(&"".to_string()).clone(),
         };
 
         let to_user: message::User;

@@ -2,6 +2,8 @@ use protocol::message::{self, serde_json, Result};
 use std::net::SocketAddr;
 use tokio::{io::AsyncReadExt, net::TcpStream};
 
+use crate::account::Account;
+
 pub async fn handle(mut socket: TcpStream, addr: SocketAddr) -> Result<()> {
     println!("Accepted connection from: {}", addr);
 
