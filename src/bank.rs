@@ -1,9 +1,9 @@
-#![allow(dead_code)]
-
+use protocol::message;
 use tokio::io::Result;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Destination {
+    FromOutside(message::User),
     AccountNumber(String),
     PixKey(String),
 }

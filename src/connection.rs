@@ -1,7 +1,8 @@
+use protocol::message::{self, serde_json, Result};
 use std::net::SocketAddr;
 use tokio::{io::AsyncReadExt, net::TcpStream};
 
-pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
+pub async fn handle(mut socket: TcpStream, addr: SocketAddr) -> Result<()> {
     println!("Accepted connection from: {}", addr);
 
     let mut buffer = [0; 1024];
@@ -9,7 +10,8 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
     loop {
         match socket.read(&mut buffer).await {
             Ok(n) if n > 0 => {
-                let message = String::from_utf8_lossy(&buffer[..n]);
+                let msg = String::from_utf8_lossy(&buffer[..n]);
+                let transfer: message::request::Transaction = serde_json::from_str(&msg)?;
             }
             Ok(_) => {
                 println!("connection closed by {}: {}", addr, addr);
@@ -21,4 +23,5 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
             }
         }
     }
+    Ok(())
 }

@@ -62,43 +62,46 @@ impl Account {
         })
     }
 
-    pub async fn transfer(&self, value: f64, destination: Destination) -> Result<()> {
+    pub async fn transfer(
+        &mut self,
+        value: f64,
+        destination: Destination,
+        stream: &mut TcpStream,
+    ) -> Result<()> {
         match destination {
+            Destination::FromOutside(user) => {
+                let db = Postgres::new().await?;
+
+                tokio::spawn(async move { db.conn.await });
+
+                let operations = vec![format!(
+                    "UPDATE accounts SET balance = balance + {} WHERE id = {}",
+                    value, user.account_number
+                )];
+
+                let mut transction = "BEGIN\n".to_string();
+                for op in operations {
+                    transction = transction + &op + ";\n";
+                }
+
+                transction = transction + "COMMIT;\nEND\n";
+                db.client.execute(&transction, &[]).await?;
+
+                let resp = message::response::Transaction {
+                    status: message::Status::Ok,
+                };
+
+                let resp_msg = serde_json::to_string(&resp)?;
+
+                stream.write_all(resp_msg.as_bytes()).await?;
+                Ok(())
+            }
             Destination::AccountNumber(number) => {
                 self.handle_inside_transfer(&value, &number).await?;
                 Ok(())
             }
             Destination::PixKey(key) => {
-                let pix = message::request::Pix {
-                    message_type: MessageType::Request,
-                    key,
-                };
-
-                let resp = pix.send(CB_HOST, CB_PORT).await?;
-
-                let user = message::User {
-                    bank_addr: BANK_ADDR.to_string(),
-                    account_number: self.number.clone(),
-                    name: self.first_name.clone(),
-                    last_name: self.last_name.clone(),
-                    cpf: self.cpf.clone(),
-                    pix_key: self.pix_key.clone(),
-                };
-
-                let to_user: message::User;
-                if let Some(user_) = resp.user {
-                    to_user = user_;
-                } else {
-                    return Err(Box::new(AccountError::Other("Destination User not found")));
-                }
-
-                let request = message::request::Transaction {
-                    bank_addr: BANK_ADDR.to_string(),
-                    from_user: user,
-                    to_user,
-                    amount: value,
-                };
-                request.send(CB_HOST, CB_PORT).await?;
+                self.handle_pix_transfer(key, value).await?;
                 Ok(())
             }
         }
@@ -154,37 +157,27 @@ impl Account {
         let resp = request.send(host.as_str(), port.as_str()).await?;
 
         match resp.status {
-            Status::Ok => {todo!();}
-            Status::Error(e) => {
-                return Err(Box::new(AccountError::TransferError(e.as_str())));
+            Status::Ok => {
+                let operations = vec![format!(
+                    "UPDATE accounts SET balance = balance - {} WHERE id = {}",
+                    amount, self.number
+                )];
+
+                let mut transction = "BEGIN\n".to_string();
+                for op in operations {
+                    transction = transction + &op + ";\n";
+                }
+                transction = transction + "COMMIT;\nEND\n";
+
+                db.client.execute(&transction, &[]).await?;
+
+                Ok(())
             }
+            Status::Error(e) => Err(Box::new(AccountError::TransferError(e))),
         }
-
-        let err_msg = match &resp.status {
-            Stat
-        };
-
-        if let Status::Error(e) = resp.status {
-            err_msg = e.clone().as_str();
-        }
-
-        let operations = vec![format!(
-            "UPDATE accounts SET balance = balance - {} WHERE id = {}",
-            amount, self.number
-        )];
-
-        let mut transction = "BEGIN\n".to_string();
-        for op in operations {
-            transction = transction + &op + ";\n";
-        }
-        transction = transction + "COMMIT;\nEND\n";
-
-        db.client.execute(&transction, &[]).await?;
-
-        Ok(())
     }
 
-    async fn handle_pix_transfer(&self, key: String, amount: f64) -> Result<()> {
+    async fn handle_pix_transfer(&mut self, key: String, amount: f64) -> Result<()> {
         let pix = message::request::Pix {
             message_type: MessageType::Request,
             key,
@@ -207,8 +200,6 @@ impl Account {
         } else {
             return Err(Box::new(AccountError::Other("Destination User not found")));
         }
-
-        // abrir um socket
 
         self.handle_outside_transfer(amount, user, to_user).await?;
 

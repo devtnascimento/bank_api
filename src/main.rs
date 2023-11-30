@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
 
     let db = Postgres::new().await?;
     tokio::spawn(async move { db.conn.await });
-    Postgres::init(&db.client);
+    Postgres::init(&db.client).await?;
 
     let new_account =
         Account::new(BANK_ADDR.to_string(), first_name, last_name, cpf, pix_key).await?;

@@ -8,7 +8,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 #[derive(Debug)]
 pub enum AccountError<'a> {
     KeyNotFound(&'a str),
-    TransferError(&'a str),
+    TransferError(String),
     Other(&'a str),
 }
 
