@@ -3,11 +3,9 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
-
 #[derive(Debug)]
 pub enum AccountError<'a> {
-    KeyNotFound(&'a str),
+    _KeyNotFound(&'a str),
     TransferError(String),
     Other(&'a str),
 }
@@ -15,7 +13,7 @@ pub enum AccountError<'a> {
 impl<'a> Display for AccountError<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            AccountError::KeyNotFound(ref key) => write!(f, "Pix key {} not found", key),
+            AccountError::_KeyNotFound(ref key) => write!(f, "Pix key {} not found", key),
             AccountError::TransferError(ref message) => {
                 write!(f, "Could not transfer\nError: {}", message)
             }

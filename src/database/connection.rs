@@ -1,8 +1,5 @@
-use std::collections::HashMap;
+use tokio_postgres::{tls::NoTlsStream, Client, NoTls, Socket};
 
-use tokio_postgres::{tls::NoTlsStream, Client, Error, NoTls, Socket};
-
-use crate::account::Account;
 use protocol::message::Result;
 
 pub struct Postgres {

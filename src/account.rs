@@ -1,14 +1,14 @@
+#![allow(dead_code)]
+
 use crate::{
-    bank::{Destination, User},
-    database::connection::Postgres,
-    io::AccountError,
-    BANK_ADDR, CB_HOST, CB_PORT,
+    bank::Destination, database::connection::Postgres, io::AccountError, BANK_ADDR, CB_HOST,
+    CB_PORT,
 };
 use protocol::{
-    message::{self, MessageType, Register, Request, Response, Result, Status},
+    message::{self, MessageType, Request, Result, Status},
     serde_json,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 #[derive(Debug)]
