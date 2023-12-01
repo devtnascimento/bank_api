@@ -56,7 +56,7 @@ impl Account {
         })
     }
 
-    pub async fn from(number: String) -> Result<Account> {
+    pub async fn from(number: &String) -> Result<Account> {
         let db = Postgres::new().await?;
         let query = "SELECT id, first_name, last_name, cpf, balance FROM accounts WHERE id = $1;";
 
@@ -68,7 +68,7 @@ impl Account {
         let balance: f64 = rows[0].get("balance");
 
         Ok(Account {
-            number,
+            number: number.clone(),
             first_name,
             last_name,
             cpf,
