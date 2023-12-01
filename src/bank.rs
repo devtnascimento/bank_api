@@ -8,3 +8,9 @@ pub enum Destination {
     AccountNumber(String),
     PixKey(String),
 }
+
+#[derive(Debug, Clone)]
+pub enum AccountID {
+    Number(String),
+    CPF(String),
+}

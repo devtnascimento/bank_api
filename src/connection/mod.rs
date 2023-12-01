@@ -1,5 +1,7 @@
 mod handler;
 
+use crate::bank::AccountID;
+use crate::io::AccountError;
 use crate::{account::Account, bank::Destination};
 use handler::handle_error;
 use protocol::message::{self, serde_json};
@@ -21,14 +23,23 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
                         break;
                     }
                 };
-                let mut to_account = match Account::from(&transfer.to_user.account_number).await {
-                    Ok(account) => account,
-                    Err(err) => {
-                        let e = handle_error(&mut socket, err).await;
-                        eprintln!("Error: {}", e);
-                        break;
-                    }
-                };
+
+                println!("Received Message: {:#?}", transfer);
+
+                let mut to_account =
+                    match Account::from(AccountID::Number(transfer.to_user.account_number.clone()))
+                        .await
+                    {
+                        Ok(account) => account,
+                        Err(err) => {
+                            let e = handle_error(&mut socket, err).await;
+                            eprintln!("Error: {}", e);
+                            break;
+                        }
+                    };
+
+                println!("to_account: {:#?}", to_account);
+
                 if let Err(e) = to_account
                     .transfer(
                         transfer.amount,
@@ -39,6 +50,9 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
                 {
                     let e = handle_error(&mut socket, e).await;
                     eprintln!("Error: {}", e);
+                    break;
+                } else {
+                    println!("Sucesso!!!");
                     break;
                 }
             }

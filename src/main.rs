@@ -19,6 +19,7 @@ async fn main() -> Result<()> {
     Postgres::init(&db.client).await?;
 
     let listener = TcpListener::bind(BANK_ADDR).await?;
+    println!("listening at {}...", BANK_ADDR);
 
     while let Ok((socket, addr)) = listener.accept().await {
         tokio::spawn(connection::handle(socket, addr));

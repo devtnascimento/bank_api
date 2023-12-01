@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
 use crate::{
-    bank::Destination, database::connection::Postgres, io::AccountError, BANK_ADDR, CB_HOST,
-    CB_PORT,
+    bank::{AccountID, Destination},
+    database::connection::Postgres,
+    io::AccountError,
+    BANK_ADDR, CB_HOST, CB_PORT,
 };
 use protocol::{
     message::{self, MessageType, Request, Result, Status},
-    serde_json,
+    serde_json::{self, Number},
 };
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -56,19 +58,43 @@ impl Account {
         })
     }
 
-    pub async fn from(number: &String) -> Result<Account> {
+    pub async fn from(id: AccountID) -> Result<Account> {
+        println!("Account::from call");
         let db = Postgres::new().await?;
-        let query = "SELECT id, first_name, last_name, cpf, balance FROM accounts WHERE id = $1;";
+        tokio::spawn(async move { db.conn.await });
 
-        let rows = db.client.query(query, &[&number]).await?;
+        let rows = match id {
+            AccountID::Number(number) => {
+                println!("using account number as id");
+                let query = format!(
+                    "SELECT id, first_name, last_name, cpf, balance FROM accounts WHERE id = {};",
+                    number
+                );
+                db.client.query(query.as_str(), &[]).await?
+            }
+            AccountID::CPF(cpf) => {
+                println!("Using cpf as id");
+                let query =
+                    "SELECT id, first_name, last_name, cpf, balance FROM accounts WHERE cpf = $1;";
+                db.client.query(query, &[&cpf]).await?
+            }
+        };
 
+        println!("rows = {:?}", rows);
+
+        if rows.len() == 0 {
+            return Err(Box::new(AccountError::UserNotFound));
+        }
+
+        let number: i32 = rows[0].get("id");
         let first_name: String = rows[0].get("first_name");
         let last_name: String = rows[0].get("last_name");
         let cpf: String = rows[0].get("cpf");
+
         let balance: f64 = rows[0].get("balance");
 
         Ok(Account {
-            number: number.clone(),
+            number: number.clone().to_string(),
             first_name,
             last_name,
             cpf,
@@ -83,24 +109,24 @@ impl Account {
         destination: Destination,
         stream: &mut TcpStream,
     ) -> Result<()> {
+        println!("Account::transfer() call");
         match destination {
             Destination::FromOutside(user) => {
-                let db = Postgres::new().await?;
+                println!("Destination::FromOutside pattern");
+                let mut db = Postgres::new().await?;
 
                 tokio::spawn(async move { db.conn.await });
 
                 let operations = vec![format!(
-                    "UPDATE accounts SET balance = balance + {} WHERE id = {}",
+                    "UPDATE accounts SET balance = balance + {} WHERE id = {};",
                     value, user.account_number
                 )];
 
-                let mut transction = "BEGIN\n".to_string();
-                for op in operations {
-                    transction = transction + &op + ";\n";
-                }
+                let transaction = db.client.transaction().await?;
 
-                transction = transction + "COMMIT;\nEND\n";
-                db.client.execute(&transction, &[]).await?;
+                transaction.execute(&operations[0], &[]).await?;
+                println!("query = {}", operations[0]);
+                transaction.commit().await?;
 
                 let resp = message::response::Transaction {
                     status: message::Status::Ok,
