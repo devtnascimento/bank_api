@@ -1,16 +1,35 @@
+version: '3'
 services:
-  api:
-    build: .
+  bank_one_api:
+    build:
+      context: ..
+      dockerfile: dockerfiles/bank.dockerfile
+    environment: 
+      BANK_NAME: BANK_ONE
+      BANK_ADDR: 0.0.0.0:9010
+      DB_URL: "postgres://postgres:123@localhost:5433/postgres"
     ports:
-      - "8081:8080"
-    container_name: IF_APP
-    volumes:
-      - ".:/app"
-    command: "/bin/bash"
-    tty: true
-  postgres:
+      - "9010:9010"
+    container_name: BANK_APP_ONE
+    command: ["bank"]
+    network_mode: "host"
+
+  bank_two_api:
+    build:
+      context: ..
+      dockerfile: dockerfiles/bank.dockerfile
+    environment: 
+      BANK_NAME: BANK_TWO
+      BANK_ADDR: 0.0.0.0:9020
+      DB_URL: "postgres://postgres:123@localhost:5434/postgres"
+    ports:
+      - "9020:9020"
+    container_name: BANK_APP_TWO
+    network_mode: "host"
+
+  postgres_one:
     image: postgres:latest
-    container_name: IF_DB 
+    container_name: BANK_DB_ONE
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -18,6 +37,21 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_one:/var/lib/postgresql/data
+
+  postgres_two:
+    image: postgres:latest
+    container_name: BANK_DB_TWO
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data_two:/var/lib/postgresql/data
+
 volumes:
-  postgres_data:
+  postgres_data_one:
+  postgres_data_two:
+

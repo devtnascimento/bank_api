@@ -2,6 +2,10 @@ use tokio_postgres::{tls::NoTlsStream, Client, NoTls, Socket};
 
 use protocol::message::Result;
 
+fn get_db_host() -> String {
+    std::env::var("DB_URL").unwrap()
+}
+
 pub struct Postgres {
     pub conn: tokio_postgres::Connection<Socket, NoTlsStream>,
     pub client: Client,
@@ -9,8 +13,8 @@ pub struct Postgres {
 
 impl Postgres {
     pub async fn new() -> Result<Postgres> {
-        let db_url = "postgres://postgres:123@localhost:5433/postgres";
-        let (client, conn) = tokio_postgres::connect(db_url, NoTls).await?;
+        let db_url = get_db_host();
+        let (client, conn) = tokio_postgres::connect(db_url.as_str(), NoTls).await?;
         Ok(Postgres { conn, client })
     }
 

@@ -3,17 +3,18 @@
 use crate::{
     bank::{AccountID, Destination},
     database::connection::Postgres,
+    get_bank_addr,
     io::AccountError,
-    BANK_ADDR, CB_HOST, CB_PORT,
+    CB_HOST, CB_PORT,
 };
 use protocol::{
     message::{self, MessageType, Request, Result, Status},
-    serde_json::{self, Number},
+    serde_json,
 };
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Account {
     pub number: String,
     balance: f64,
@@ -227,7 +228,7 @@ impl Account {
         let resp = pix.send(CB_HOST, CB_PORT).await?;
 
         let user = message::User {
-            bank_addr: BANK_ADDR.to_string(),
+            bank_addr: get_bank_addr().to_string(),
             account_number: self.number.clone(),
             name: self.first_name.clone(),
             last_name: self.last_name.clone(),

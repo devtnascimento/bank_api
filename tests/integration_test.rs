@@ -4,6 +4,30 @@ use tokio::{
     net::TcpStream,
 };
 
+const PEAR_ADDR: &str = "127.0.0.1:9020";
+
+#[tokio::test]
+async fn register_accounts() -> message::Result<()> {
+    let account = message::register::Account {
+        firs_name: String::from("Felipe"),
+        last_name: String::from("Marques"),
+        cpf: String::from("32132132132"),
+        pix_key: String::from("felipe.marques@email.com"),
+    };
+
+    let req = message::serde_json::to_string(&account)?;
+    let mut stream = TcpStream::connect(PEAR_ADDR).await?;
+    stream.write_all(req.as_bytes()).await?;
+
+    let mut buffer = Vec::new();
+    stream.read_to_end(&mut buffer).await?;
+    let resp = String::from_utf8_lossy(&buffer);
+    let xpct_resp = message::serde_json::to_string(&message::Status::Ok)?;
+
+    assert_eq!(resp, xpct_resp);
+    Ok(())
+}
+
 #[tokio::test]
 async fn recv_transfer() -> message::Result<()> {
     let pear_addr = "127.0.0.1:9010";

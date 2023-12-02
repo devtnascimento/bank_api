@@ -1,0 +1,10 @@
+ bank_two_api:
+    image: bank_app:latest
+    environment: 
+      - BANK_NAME=BANK_TWO
+      - BANK_ADDR=0.0.0.0:9020
+    ports:
+      - "9020:8080"
+    container_name: BANK_APP_TWO
+
+

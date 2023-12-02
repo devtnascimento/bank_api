@@ -1,9 +1,8 @@
 mod handler;
 
 use crate::bank::AccountID;
-use crate::io::AccountError;
 use crate::{account::Account, bank::Destination};
-use handler::handle_error;
+use handler::{handle_error, handle_register};
 use protocol::message::{self, serde_json};
 use std::net::SocketAddr;
 use tokio::{io::AsyncReadExt, net::TcpStream};
@@ -15,11 +14,15 @@ pub async fn handle(mut socket: TcpStream, addr: SocketAddr) {
         match socket.read(&mut buffer).await {
             Ok(n) if n > 0 => {
                 let msg = String::from_utf8_lossy(&buffer[..n]);
+
                 let transfer: message::request::Transaction = match serde_json::from_str(&msg) {
                     Ok(transfer) => transfer,
-                    Err(err) => {
-                        let e = handle_error(&mut socket, Box::new(err)).await;
-                        eprintln!("Error: {}", e);
+                    Err(_) => {
+                        if let Err(err) = handle_register(&mut socket, &msg).await {
+                            let e = handle_error(&mut socket, err).await;
+                            eprintln!("Error: {}", e);
+                            break;
+                        }
                         break;
                     }
                 };
